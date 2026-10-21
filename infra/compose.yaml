@@ -1,0 +1,48 @@
+# Local development stack. Credentials here are dev-only placeholders.
+#   docker compose -f infra/compose.yaml up -d postgres   # database only, run apps natively
+#   docker compose -f infra/compose.yaml up --build       # everything in containers
+name: gymflow
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: gymflow
+      POSTGRES_PASSWORD: gymflow
+      POSTGRES_DB: gymflow_control
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gymflow -d gymflow_control"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    environment:
+      GYMFLOW_CONTROL_DB_URL: jdbc:postgresql://postgres:5432/gymflow_control
+      GYMFLOW_CONTROL_DB_USERNAME: gymflow
+      GYMFLOW_CONTROL_DB_PASSWORD: gymflow
+      GYMFLOW_API_DOCS_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:

@@ -1,0 +1,113 @@
+openapi: 3.1.0
+info:
+  title: GymFlow API
+  version: v1
+  description: |
+    Staff dashboard and public renewal API for GymFlow.
+
+    This file is the reviewed API contract. The web app generates its types from it
+    (`npm run gen:api` in apps/web), and the running API serves its own generated
+    document at `/v3/api-docs` for comparison.
+
+    Every error response is an RFC 9457 problem document (`application/problem+json`)
+    with a stable `code` property.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+paths:
+  /api/v1/system/info:
+    get:
+      operationId: getSystemInfo
+      summary: Describe the running API
+      tags: [system]
+      responses:
+        "200":
+          description: API name and version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemInfo"
+        default:
+          $ref: "#/components/responses/Problem"
+  /actuator/health:
+    get:
+      operationId: getHealth
+      summary: Liveness and readiness of the API
+      tags: [system]
+      responses:
+        "200":
+          description: The API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: The API or one of its dependencies is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+components:
+  responses:
+    Problem:
+      description: An error, described as a problem document
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    SystemInfo:
+      type: object
+      required: [name, version, apiVersion]
+      properties:
+        name:
+          type: string
+          examples: [GymFlow API]
+        version:
+          type: string
+          examples: [0.1.0-SNAPSHOT]
+        apiVersion:
+          type: string
+          examples: [v1]
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN, OUT_OF_SERVICE, UNKNOWN]
+    Problem:
+      type: object
+      required: [status, title, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        errors:
+          type: array
+          description: Present when code is VALIDATION_FAILED
+          items:
+            $ref: "#/components/schemas/FieldViolation"
+    ErrorCode:
+      type: string
+      enum: [VALIDATION_FAILED, NOT_FOUND, BAD_REQUEST, INTERNAL_ERROR]
+    FieldViolation:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
